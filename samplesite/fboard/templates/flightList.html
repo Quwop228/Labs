@@ -1,0 +1,38 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Добавление рейсов :: Рейсы</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="{% static 'fboard/style.css' %}"/>
+</head>
+<body>
+    <a href="{% url 'index' %}">Главная</a>
+    <h1>Список рейсов</h1>
+    <table >
+        <thead>
+            <tr align="center">
+                <th>#</th>
+                <th>Пункт отправления</th>
+                <th>Пункт назначения</th>
+                <th>Время отправления</th>
+                <th>Время прибытия</th>
+                <th>ТС</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for flight in flights %}
+            <tr align="center">
+                <td>{{ flight.num }}</td>
+                <td>{{ flight.fr }}</td>
+                <td>{{ flight.to }}</td>
+                <td>{{ flight.departure }}</td>
+                <td>{{ flight.arrive }}</td>
+                <td>{{ flight.vehicle.type }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
