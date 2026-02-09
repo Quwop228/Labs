@@ -1,0 +1,44 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Сотрудники :: Отдел кадров</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="{% static 'hr/style.css' %}"/>
+</head>
+<body>
+    <div class="nav">
+        <a href="{% url 'hr:index' %}">Главная</a>
+    </div>
+    <h1>Список сотрудников</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>ФИО</th>
+                <th>Номер паспорта</th>
+                <th>Дата рождения</th>
+                <th>Домашний адрес</th>
+                <th>Домашний телефон</th>
+                <th>Должность</th>
+                <th>Оклад</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for emp in employees %}
+            <tr>
+                <td>{{ emp.id }}</td>
+                <td>{{ emp.full_name }}</td>
+                <td>{{ emp.passport_number }}</td>
+                <td>{{ emp.birth_date }}</td>
+                <td>{{ emp.home_address|default:"-" }}</td>
+                <td>{{ emp.home_phone|default:"-" }}</td>
+                <td>{{ emp.position.position_name|default:"Не назначена" }}</td>
+                <td>{{ emp.position.salary|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

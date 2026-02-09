@@ -1,0 +1,32 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Специальности :: Отдел кадров</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="{% static 'hr/style.css' %}"/>
+</head>
+<body>
+    <div class="nav">
+        <a href="{% url 'hr:index' %}">Главная</a>
+    </div>
+    <h1>Справочник специальностей</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Код специальности</th>
+                <th>Наименование специальности</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for spec in specialties %}
+            <tr>
+                <td>{{ spec.specialty_code }}</td>
+                <td>{{ spec.specialty_name }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

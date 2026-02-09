@@ -1,0 +1,23 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>База данных "Отдел кадров"</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="{% static 'hr/style.css' %}"/>
+</head>
+<body>
+    <h1>База данных "Отдел кадров"</h1>
+    <ul>
+        <li><a href="{% url 'hr:employee_list' %}">Сотрудники</a></li>
+        <li><a href="{% url 'hr:education_list' %}">Образование</a></li>
+        <li><a href="{% url 'hr:training_list' %}">Повышение квалификации</a></li>
+        <li><a href="{% url 'hr:reward_list' %}">Поощрения</a></li>
+        <li><a href="{% url 'hr:penalty_list' %}">Взыскания</a></li>
+        <li><a href="{% url 'hr:position_list' %}">Справочник должностей</a></li>
+        <li><a href="{% url 'hr:specialty_list' %}">Справочник специальностей</a></li>
+        <li><a href="{% url 'hr:employee_list_simple' %}">Список сотрудников (HttpResponse)</a></li>
+    </ul>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Образование :: Отдел кадров</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="{% static 'hr/style.css' %}"/>
+</head>
+<body>
+    <div class="nav">
+        <a href="{% url 'hr:index' %}">Главная</a>
+    </div>
+    <h1>Информация об образовании сотрудников</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>ФИО сотрудника</th>
+                <th>Уровень образования</th>
+                <th>Номер диплома</th>
+                <th>Код специальности</th>
+                <th>Наименование специальности</th>
+                <th>Квалификация</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for edu in educations %}
+            <tr>
+                <td>{{ edu.employee.full_name }}</td>
+                <td>{{ edu.education_level }}</td>
+                <td>{{ edu.diploma_number }}</td>
+                <td>{{ edu.specialty.specialty_code|default:"-" }}</td>
+                <td>{{ edu.specialty.specialty_name|default:"-" }}</td>
+                <td>{{ edu.qualification|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

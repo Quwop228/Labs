@@ -1,0 +1,36 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Повышение квалификации :: Отдел кадров</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="{% static 'hr/style.css' %}"/>
+</head>
+<body>
+    <div class="nav">
+        <a href="{% url 'hr:index' %}">Главная</a>
+    </div>
+    <h1>Повышение квалификации</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>ФИО сотрудника</th>
+                <th>Дата повышения квалификации</th>
+                <th>Присвоена квалификация</th>
+                <th>Номер свидетельства</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in trainings %}
+            <tr>
+                <td>{{ t.employee.full_name }}</td>
+                <td>{{ t.training_date }}</td>
+                <td>{{ t.qualification_awarded }}</td>
+                <td>{{ t.certificate_number }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
