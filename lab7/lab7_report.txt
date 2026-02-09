@@ -1,0 +1,378 @@
+Лабораторная работа №7
+дисциплина: «Управление данными»
+тема: «Создание приложения базы данных»
+Вариант №6
+
+Ход работы
+
+1. Анализ предметной области
+
+                    viewer                        hr_manager
+
+              Поиск сотрудников            Просмотр сотрудников
+
+                                           Добавление сотрудника
+
+                                           Добавление поощрения
+
+                                           Добавление взыскания
+
+                                           Увольнение сотрудника
+
+Рисунок 1. Диаграмма вариантов использования
+
+Можно найти сотрудника по ФИО или по должности. При добавлении
+нового сотрудника осуществляется проверка возраста. Если возраст
+сотрудника не менее 18 лет, сотрудника можно добавить, иначе – нельзя.
+Менеджер по кадрам может просматривать список всех сотрудников,
+добавлять новых сотрудников, добавлять поощрения и взыскания, а также
+увольнять сотрудников. При увольнении каскадно удаляются все связанные
+записи (образование, повышение квалификации, поощрения, взыскания).
+
+2. Реализация базы данных в СУБД PostgreSQL
+
+Воспользуемся моделью базы данных отдела кадров, созданной ранее.
+Подключимся базе данных hr_database и создадим две роли hr_manager и
+viewer.
+
+CREATE ROLE "hr_manager" LOGIN PASSWORD '1234';
+
+CREATE ROLE "viewer" LOGIN PASSWORD '1111';
+
+Для возможности выполнения пользователями действий в соответствии
+с рисунком 1 в базе создадим следующие привилегии для них.
+
+Для поиска сотрудников пользователем viewer:
+
+GRANT EXECUTE ON FUNCTION getEmployees
+TO "viewer";
+
+GRANT EXECUTE ON FUNCTION getEmployeesByPosition
+TO "viewer";
+
+Для просмотра списка сотрудников менеджером:
+
+GRANT SELECT ON employeeList
+TO "hr_manager";
+
+Для добавления сотрудников менеджером:
+
+GRANT INSERT ON employeeList
+TO "hr_manager";
+
+GRANT
+INSERT,
+SELECT ON "Employees" TO "hr_manager";
+
+Для добавления поощрений и взысканий менеджером:
+
+GRANT
+INSERT, SELECT ON "Rewards" TO "hr_manager";
+
+GRANT
+INSERT, SELECT ON "Penalties" TO "hr_manager";
+
+GRANT EXECUTE ON FUNCTION addReward
+TO "hr_manager";
+
+GRANT EXECUTE ON FUNCTION addPenalty
+TO "hr_manager";
+
+Для увольнения сотрудника менеджером:
+
+GRANT EXECUTE ON FUNCTION fireEmployee
+TO "hr_manager";
+
+GRANT SELECT ON "Positions" TO "hr_manager";
+
+3. Реализация серверной части приложения
+
+Вариант использования получения списка сотрудников пользователем viewer
+реализован с помощью функции getEmployees(search_name TEXT).
+
+CREATE OR REPLACE FUNCTION PUBLIC.GETEMPLOYEES(search_name TEXT)
+RETURNS TABLE(id INT, full_name TEXT, passport TEXT, birth_date DATE,
+address TEXT, phone TEXT, position TEXT, salary NUMERIC) AS $$
+SELECT E.employee_id, E.full_name, E.passport_number, E.birth_date,
+E.home_address, E.home_phone, P.position_name, P.salary
+FROM "Employees" E
+LEFT JOIN "Positions" P ON E.position_code = P.position_code
+WHERE E.full_name LIKE '%' || search_name || '%'
+ORDER BY E.full_name
+$$ LANGUAGE SQL
+SECURITY DEFINER
+
+Вариант использования получения сотрудников по должности
+реализован с помощью функции getEmployeesByPosition(pos_name TEXT).
+
+CREATE OR REPLACE FUNCTION PUBLIC.GETEMPLOYEESBYPOSITION(pos_name TEXT)
+RETURNS TABLE(id INT, full_name TEXT, passport TEXT, birth_date DATE,
+address TEXT, phone TEXT, position TEXT, salary NUMERIC) AS $$
+SELECT E.employee_id, E.full_name, E.passport_number, E.birth_date,
+E.home_address, E.home_phone, P.position_name, P.salary
+FROM "Employees" E
+LEFT JOIN "Positions" P ON E.position_code = P.position_code
+WHERE P.position_name LIKE '%' || pos_name || '%'
+ORDER BY E.full_name
+$$ LANGUAGE SQL
+SECURITY DEFINER
+
+Вариант добавления поощрения реализован с помощью функции
+addReward(emp_id INT, r_type TEXT).
+
+CREATE OR REPLACE FUNCTION PUBLIC.ADDREWARD(emp_id INT, r_type TEXT)
+RETURNS VOID AS
+$$
+BEGIN
+    INSERT INTO "Rewards"(employee_id, reward_date, reward_type)
+    VALUES(emp_id, NOW(), r_type);
+END;
+$$ LANGUAGE PLPGSQL;
+
+Вариант добавления взыскания реализован с помощью функции
+addPenalty(emp_id INT, p_type TEXT).
+
+CREATE OR REPLACE FUNCTION PUBLIC.ADDPENALTY(emp_id INT, p_type TEXT)
+RETURNS VOID AS
+$$
+BEGIN
+    INSERT INTO "Penalties"(employee_id, penalty_date, penalty_type)
+    VALUES(emp_id, NOW(), p_type);
+END;
+$$ LANGUAGE PLPGSQL;
+
+При попытке добавить сотрудника срабатывает триггер
+
+CREATE TRIGGER TR1
+BEFORE
+INSERT ON "Employees"
+FOR EACH ROW EXECUTE PROCEDURE checkEmployeeAge();
+
+Триггер вызывается перед добавлением, т.к. функция
+checkEmployeeAge() проверяет возраст сотрудника (не менее 18 лет).
+
+CREATE OR REPLACE FUNCTION checkEmployeeAge()
+RETURNS TRIGGER
+AS
+$$
+DECLARE
+    age_years INT;
+BEGIN
+    age_years := DATE_PART('year', AGE(NOW(), new.birth_date));
+
+    IF age_years < 18 THEN
+        RAISE EXCEPTION 'Сотрудник должен быть не младше 18 лет (возраст: %)', age_years;
+    END IF;
+    RETURN new;
+END;
+$$ LANGUAGE PLPGSQL;
+
+Вариант просмотра сотрудников менеджером реализован с помощью
+представления
+
+CREATE OR REPLACE VIEW employeeList AS
+SELECT E.employee_id, E.full_name, E.passport_number, E.birth_date,
+E.home_address, E.home_phone, P.position_name, P.salary
+FROM "Employees" E
+LEFT JOIN "Positions" P ON E.position_code = P.position_code
+ORDER BY E.full_name;
+
+Вариант использования добавления сотрудника менеджером реализован с
+помощью представления employeeList.
+
+CREATE OR REPLACE RULE "insertEmployee" AS
+ON INSERT TO employeeList
+DO NOTHING;
+
+Вариант увольнения сотрудника реализован с помощью функции
+fireEmployee(emp_id INT).
+
+CREATE OR REPLACE FUNCTION PUBLIC.FIREEMPLOYEE(emp_id INT)
+RETURNS VOID AS
+$$
+BEGIN
+    DELETE FROM "Employees" WHERE employee_id = emp_id;
+END;
+$$ LANGUAGE PLPGSQL;
+
+4. Создание клиентской части приложения
+
+import psycopg2
+from psycopg2 import Error
+from psycopg2 import OperationalError
+import os, re
+
+
+def create_connection(db_name, db_user, db_password, db_host, db_port):
+    connection = None
+
+    connection = psycopg2.connect(
+        database = db_name,
+        user = db_user,
+        password = db_password,
+        host = db_host,
+        port = db_port
+    )
+
+    print("Соединение установлено.")
+    return connection
+
+
+# Список сотрудников (для hr_manager)
+def employeeList(connection):
+    try:
+        cursor = connection.cursor()
+        query = "select * from employeeList"
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        print("-----+------------------------------+---------------+------------+----------------------------------------+--------------------+----------------------+----------")
+        print("%5s|%30s|%15s|%12s|%40s|%20s|%22s|%10s" %("ID", "ФИО", "Паспорт", "Дата рожд.", "Адрес", "Телефон", "Должность", "Оклад"))
+        print("-----+------------------------------+---------------+------------+----------------------------------------+--------------------+----------------------+----------")
+
+        for row in rows:
+            print("%5s|%30s|%15s|%12s|%40s|%20s|%22s|%10s" %(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
+
+        cursor.close()
+    except (Exception, Error) as e:
+        print(e.diag.message_primary)
+        connection.rollback()
+
+
+# Добавление сотрудника (для hr_manager)
+def addEmployee(connection):
+    try:
+        date_pattern = re.compile("(\d{4}-\d{2}-\d{2})")
+        cursor = connection.cursor()
+        name = input("Введите ФИО сотрудника: ")
+        passport = input("Введите номер паспорта: ")
+
+        birth_date = input("Введите дату рождения (yyyy-mm-dd): ")
+        m = date_pattern.fullmatch(birth_date)
+        while m == None:
+            print("Неверный формат даты (yyyy-mm-dd).")
+            birth_date = input("Введите дату рождения (yyyy-mm-dd): ")
+            m = date_pattern.fullmatch(birth_date)
+
+        address = input("Введите домашний адрес: ")
+        phone = input("Введите домашний телефон: ")
+        position_code = input("Введите код должности (DIR/MGR/DEV/ACC/HR/LAW): ")
+
+        query = f"INSERT INTO \"Employees\"(full_name, passport_number, birth_date, home_address, home_phone, position_code)\nVALUES ('{name}', '{passport}', '{birth_date}', '{address}', '{phone}', '{position_code}')"
+        cursor.execute(query)
+        connection.commit()
+        print("Сотрудник успешно добавлен.")
+        cursor.close()
+    except (Exception, Error) as e:
+        print(e.diag.message_primary)
+        connection.rollback()
+
+
+# Просмотр сотрудников (для viewer)
+def getEmployees(connection):
+    try:
+        cursor = connection.cursor()
+        search = input("Введите ФИО для поиска (или пустую строку для всех): ")
+
+        query = f"select * from getEmployees('{search}')"
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+        if rows != None:
+            print("-----+------------------------------+---------------+------------+----------------------------------------+--------------------+----------------------+----------")
+            print("%5s|%30s|%15s|%12s|%40s|%20s|%22s|%10s" %("ID", "ФИО", "Паспорт", "Дата рожд.", "Адрес", "Телефон", "Должность", "Оклад"))
+            print("-----+------------------------------+---------------+------------+----------------------------------------+--------------------+----------------------+----------")
+
+            for row in rows:
+                print("%5s|%30s|%15s|%12s|%40s|%20s|%22s|%10s" %(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
+
+            cursor.close()
+        else:
+            print("Сотрудники не найдены.")
+
+    except (Exception, Error) as e:
+        print(e.diag.message_primary)
+        connection.rollback()
+
+
+# Добавление поощрения (для hr_manager)
+def addReward(connection):
+    try:
+        cursor = connection.cursor()
+        emp_id = input("Введите ID сотрудника: ")
+        reward_type = input("Введите вид поощрения: ")
+
+        query = f"select addReward('{emp_id}', '{reward_type}')"
+        cursor.execute(query)
+        connection.commit()
+        print("Поощрение успешно добавлено.")
+
+    except (Exception, Error) as e:
+        print(e.diag.message_primary)
+        connection.rollback()
+
+
+# Добавление взыскания (для hr_manager)
+def addPenalty(connection):
+    try:
+        cursor = connection.cursor()
+        emp_id = input("Введите ID сотрудника: ")
+        penalty_type = input("Введите вид взыскания: ")
+
+        query = f"select addPenalty('{emp_id}', '{penalty_type}')"
+        cursor.execute(query)
+        connection.commit()
+        print("Взыскание успешно добавлено.")
+
+    except (Exception, Error) as e:
+        print(e.diag.message_primary)
+        connection.rollback()
+
+
+# Увольнение сотрудника (для hr_manager)
+def fireEmployee(connection):
+    try:
+        cursor = connection.cursor()
+        emp_id = input("Введите ID сотрудника для увольнения: ")
+
+        query = f"select fireEmployee('{emp_id}')"
+        cursor.execute(query)
+        connection.commit()
+        print("Сотрудник уволен.")
+
+    except (Exception, Error) as e:
+        print(e.diag.message_primary)
+        connection.rollback()
+
+
+os.system("cls")
+user = input("Введите логин: ")
+password = input("Введите пароль: ")
+
+try:
+    connection = create_connection("hr_database", user, password, "localhost", "5432")
+    op = 100
+    while op != 0:
+        print('\n\n1 - список сотрудников| 2 - добавление сотрудника| 3 - поиск сотрудников| 4 - добавить поощрение| 5 - добавить взыскание| 6 - увольнение| 0 - выход')
+        op = input('выберите операцию:')
+
+        match op:
+            case '1':
+                employeeList(connection)
+            case '2':
+                addEmployee(connection)
+            case '3':
+                getEmployees(connection)
+            case '4':
+                addReward(connection)
+            case '5':
+                addPenalty(connection)
+            case '6':
+                fireEmployee(connection)
+            case '0':
+                connection.close()
+except (Exception, Error) as e:
+    print(e)
+
+Рисунок 2. Сеанс работы пользователя hr_manager
+
+Рисунок 3. Сеанс работы пользователя viewer
