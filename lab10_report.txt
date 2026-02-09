@@ -1,0 +1,252 @@
+Лабораторная работа №10
+дисциплина: «Управление данными»
+тема: «Django. Административный интерфейс. Создание приложения»
+Вариант №6
+
+Ход работы
+
+Установим проект Django с помощью команды:
+
+pip install django --user
+
+Создадим проект samplesite с помощью команды
+
+django-admin startproject samplesite
+
+Рис. 1. Установленные файлы
+
+Запустим веб-сервер с помощью отладочной команды
+
+python manage.py runserver
+
+и перейдем по адресу http://localhost:8000/.
+
+Рис. 2. Результат работы программы
+
+Создадим приложение hr. Для этого в папке проекта выполним
+команду:
+
+python manage.py startapp hr
+
+Рис. 3. Созданные файлы
+
+Зарегистрируем созданное приложение в проекте добавим в список
+INSTALLED_APPS добавим строку
+
+'hr.apps.HrConfig'
+
+Для описания таблицы специальностей, объявим модель Specialty в
+модуле models.py:
+
+class Specialty(models.Model):
+    specialty_code = models.CharField(max_length=20, primary_key=True, verbose_name="Код специальности")
+    specialty_name = models.CharField(max_length=200, verbose_name="Наименование специальности")
+
+    class Meta:
+        verbose_name = "Специальность"
+        verbose_name_plural = "Специальности"
+
+    def __str__(self):
+        return f"{self.specialty_code} - {self.specialty_name}"
+
+Для описания таблицы должностей из базы данных, объявим модель Position в
+модуле models.py:
+
+class Position(models.Model):
+    position_code = models.CharField(max_length=10, primary_key=True, verbose_name="Код должности")
+    position_name = models.CharField(max_length=100, verbose_name="Наименование должности")
+    salary = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Должностной оклад")
+
+    class Meta:
+        verbose_name = "Должность"
+        verbose_name_plural = "Должности"
+
+    def __str__(self):
+        return f"{self.position_code} - {self.position_name}"
+
+Для описания таблицы сотрудников из базы данных, объявим модель Employee в
+модуле models.py:
+
+class Employee(models.Model):
+    full_name = models.CharField(max_length=200, verbose_name="ФИО сотрудника")
+    passport_number = models.CharField(max_length=20, unique=True, verbose_name="Номер паспорта")
+    birth_date = models.DateField(verbose_name="Дата рождения")
+    home_address = models.TextField(null=True, blank=True, verbose_name="Домашний адрес")
+    home_phone = models.CharField(max_length=20, null=True, blank=True, verbose_name="Домашний телефон")
+    position = models.ForeignKey(
+        Position,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Должность",
+        related_name="employees"
+    )
+
+    class Meta:
+        verbose_name = "Сотрудник"
+        verbose_name_plural = "Сотрудники"
+
+    def __str__(self):
+        return self.full_name
+
+Для описания таблицы образования из базы данных, объявим модель Education в
+модуле models.py:
+
+class Education(models.Model):
+    EDUCATION_LEVELS = [
+        ('Среднее', 'Среднее'),
+        ('Среднее специальное', 'Среднее специальное'),
+        ('Неполное высшее', 'Неполное высшее'),
+        ('Высшее', 'Высшее'),
+        ('Магистратура', 'Магистратура'),
+        ('Аспирантура', 'Аспирантура'),
+    ]
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        verbose_name="Сотрудник",
+        related_name="educations"
+    )
+    education_level = models.CharField(max_length=50, choices=EDUCATION_LEVELS, verbose_name="Уровень образования")
+    diploma_number = models.CharField(max_length=50, unique=True, verbose_name="Номер диплома")
+    specialty = models.ForeignKey(
+        Specialty,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Специальность",
+        related_name="educations"
+    )
+    qualification = models.CharField(max_length=100, null=True, blank=True, verbose_name="Квалификация")
+
+    class Meta:
+        verbose_name = "Образование"
+        verbose_name_plural = "Образование"
+
+    def __str__(self):
+        return f"{self.employee.full_name} - {self.education_level} ({self.diploma_number})"
+
+Для описания таблицы повышения квалификации из базы данных, объявим модель
+QualificationTraining в модуле models.py:
+
+class QualificationTraining(models.Model):
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        verbose_name="Сотрудник",
+        related_name="trainings"
+    )
+    training_date = models.DateField(verbose_name="Дата повышения квалификации")
+    qualification_awarded = models.CharField(max_length=100, verbose_name="Присвоена квалификация")
+    certificate_number = models.CharField(max_length=50, unique=True, verbose_name="Номер свидетельства")
+
+    class Meta:
+        verbose_name = "Повышение квалификации"
+        verbose_name_plural = "Повышение квалификации"
+
+    def __str__(self):
+        return f"{self.employee.full_name} - {self.qualification_awarded}"
+
+Для описания таблицы поощрений из базы данных, объявим модель Reward в
+модуле models.py:
+
+class Reward(models.Model):
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        verbose_name="Сотрудник",
+        related_name="rewards"
+    )
+    reward_date = models.DateField(verbose_name="Дата поощрения")
+    reward_type = models.CharField(max_length=100, verbose_name="Вид поощрения")
+
+    class Meta:
+        verbose_name = "Поощрение"
+        verbose_name_plural = "Поощрения"
+
+    def __str__(self):
+        return f"{self.employee.full_name} - {self.reward_type}"
+
+Для описания таблицы взысканий из базы данных, объявим модель Penalty в
+модуле models.py:
+
+class Penalty(models.Model):
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        verbose_name="Сотрудник",
+        related_name="penalties"
+    )
+    penalty_date = models.DateField(verbose_name="Дата взыскания")
+    penalty_type = models.CharField(max_length=100, verbose_name="Вид взыскания")
+
+    class Meta:
+        verbose_name = "Взыскание"
+        verbose_name_plural = "Взыскания"
+
+    def __str__(self):
+        return f"{self.employee.full_name} - {self.penalty_type}"
+
+Сгенерируем миграцию на основе созданных моделей и проверим sql-
+код, созданный миграцией с помощью команд:
+
+python manage.py makemigrations hr
+
+Затем выполним миграцию с помощью команды
+
+python manage.py migrate
+
+Рис. 4. Результат выполнения команды
+
+Создадим зарегистрированного пользователя административного сайта
+с максимальными правами - правами суперпользователя, с помощью команды
+
+python manage.py createsuperuser
+
+Добавим созданные модели в модуле admin.py.
+
+from django.contrib import admin
+from .models import Specialty, Position, Employee, Education, QualificationTraining, Reward, Penalty
+
+# Register your models here.
+class SpecialtyAdmin(admin.ModelAdmin):
+    list_display = ("specialty_code", "specialty_name")
+    search_fields = ("specialty_code", "specialty_name")
+
+class PositionAdmin(admin.ModelAdmin):
+    list_display = ("position_code", "position_name", "salary")
+    search_fields = ("position_name",)
+
+class EmployeeAdmin(admin.ModelAdmin):
+    list_display = ("id", "full_name", "passport_number", "birth_date", "home_phone", "position")
+    search_fields = ("full_name", "passport_number")
+
+class EducationAdmin(admin.ModelAdmin):
+    list_display = ("employee", "education_level", "diploma_number", "specialty", "qualification")
+    search_fields = ("employee__full_name", "diploma_number")
+
+class QualificationTrainingAdmin(admin.ModelAdmin):
+    list_display = ("employee", "training_date", "qualification_awarded", "certificate_number")
+    search_fields = ("employee__full_name", "qualification_awarded")
+
+class RewardAdmin(admin.ModelAdmin):
+    list_display = ("employee", "reward_date", "reward_type")
+    search_fields = ("employee__full_name", "reward_type")
+
+class PenaltyAdmin(admin.ModelAdmin):
+    list_display = ("employee", "penalty_date", "penalty_type")
+    search_fields = ("employee__full_name", "penalty_type")
+
+admin.site.register(Specialty, SpecialtyAdmin)
+admin.site.register(Position, PositionAdmin)
+admin.site.register(Employee, EmployeeAdmin)
+admin.site.register(Education, EducationAdmin)
+admin.site.register(QualificationTraining, QualificationTrainingAdmin)
+admin.site.register(Reward, RewardAdmin)
+admin.site.register(Penalty, PenaltyAdmin)
+
+Запустим отладочный сервер и перейдем по адресу
+http://localhost:8000/admin/.
+
+Рис. 5. Административный интерфейс сайта
